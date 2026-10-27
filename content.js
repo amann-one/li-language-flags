@@ -142,6 +142,7 @@
     ) || null;
   }
 
+  const MAX_INLINE = 10; // more flags than this go on their own line below the heading
   const POP_ID = "lsf-popover";
   let popLoc = null;
 
@@ -161,14 +162,19 @@
     const pop = document.createElement("div");
     pop.id = POP_ID;
     Object.assign(pop.style, {
-      position: "fixed", zIndex: "2147483647", width: "min(480px, calc(100vw - 24px))",
+      position: "fixed", zIndex: "2147483647",
       maxHeight: "60vh", overflowY: "auto", boxSizing: "border-box",
       background: "#fff", color: "#000", border: "1px solid rgba(0,0,0,.2)", borderRadius: "8px",
       boxShadow: "0 6px 24px rgba(0,0,0,.25)", padding: "14px 16px", font: "14px/1.45 sans-serif"
     });
+    // Width is capped to the viewport; horizontal position is clamped so the popover never crosses the left or right edge
+    const margin = 12;
+    const width = Math.min(480, document.documentElement.clientWidth - 2 * margin);
+    pop.style.width = width + "px";
     const rect = anchor.getBoundingClientRect();
     pop.style.top = Math.round(rect.bottom + 8) + "px";
-    pop.style.right = Math.max(12, Math.round(window.innerWidth - rect.right)) + "px";
+    const maxLeft = document.documentElement.clientWidth - width - margin;
+    pop.style.left = Math.round(Math.min(Math.max(rect.right - width, margin), maxLeft)) + "px";
 
     const add = (text, style) => {
       if (!text) return;
@@ -236,6 +242,15 @@
         s.addEventListener("click", (e) => { e.stopPropagation(); togglePopover(loc, s, locales.texts); });
         box.appendChild(s);
       }
+    }
+    if (heading && ordered.length > MAX_INLINE) {
+      // Many languages: put the flags on their own line below the heading, right-aligned and wrapping
+      Object.assign(box.style, {
+        display: "flex", flexWrap: "wrap", justifyContent: "flex-end", gap: "8px",
+        margin: "8px 0 0", width: "100%", boxSizing: "border-box"
+      });
+      heading.insertAdjacentElement("afterend", box);
+      return;
     }
     if (heading) {
       // Right-aligned and vertically centered on the "Overview" heading.
