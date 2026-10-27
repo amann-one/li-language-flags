@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "LinkedIn Language Flags",
+  "version": "0.1.0",
+  "description": "Shows flags on LinkedIn company pages for every language the page is actually maintained in. Click a flag to see name, tagline and description in that language.",
+  "host_permissions": ["https://www.linkedin.com/*"],
+  "content_scripts": [
+    {
+      "matches": ["https://www.linkedin.com/company/*", "https://www.linkedin.com/school/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["flags/*.svg"],
+      "matches": ["https://www.linkedin.com/*"]
+    }
+  ]
+}
