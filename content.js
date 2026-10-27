@@ -60,6 +60,21 @@
     }
   }
 
+  // Finds the company's primary language ("defaultLocale", e.g. {language: "en", country: "US"}) as "en_US"
+  function findPrimary(node) {
+    if (!node || typeof node !== "object") return null;
+    if (Array.isArray(node)) {
+      for (const n of node) { const r = findPrimary(n); if (r) return r; }
+      return null;
+    }
+    const d = node.defaultLocale;
+    if (d && typeof d === "object" && d.language) return d.language + "_" + (d.country || d.language.toUpperCase());
+    for (const v of Object.values(node)) {
+      if (v && typeof v === "object") { const r = findPrimary(v); if (r) return r; }
+    }
+    return null;
+  }
+
   async function fetchLocales(slug) {
     const csrf = getCsrf();
     if (!csrf) {
@@ -74,6 +89,7 @@
     ];
     const allFound = {};
     const allTexts = {};
+    let primary = null;
     for (const url of urls) {
       try {
         const res = await fetch(url, {
@@ -91,11 +107,13 @@
         }
         const json = await res.json();
         collectLocales(json, "", allFound, allTexts);
+        primary = primary || findPrimary(json);
         const locales = Object.keys(allFound).sort();
         console.log(TAG, slug, "locales found:", locales, allFound);
         // Done once the description is present too (the decorated variant does not always include it)
         if (locales.length && locales.some((l) => allTexts[l] && allTexts[l].description)) {
           locales.texts = allTexts;
+          locales.primary = primary;
           return locales;
         }
       } catch (e) {
@@ -103,7 +121,9 @@
       }
     }
     const merged = Object.keys(allFound).sort();
+    if (!merged.length && primary) merged.push(primary); // no localized texts at all: still show the primary language
     merged.texts = allTexts;
+    merged.primary = primary;
     return merged;
   }
 
@@ -124,6 +144,8 @@
 
   const POP_ID = "lsf-popover";
   let popLoc = null;
+
+  function primaryOf(el) { return el && el.dataset ? el.dataset.primaryLoc : null; }
 
   function closePopover() {
     document.getElementById(POP_ID)?.remove();
@@ -155,7 +177,7 @@
       Object.assign(p.style, { marginBottom: "10px", whiteSpace: "pre-wrap" }, style);
       pop.appendChild(p);
     };
-    add(loc, { font: "600 12px sans-serif", color: "#666" });
+    add(loc + (loc === primaryOf(anchor) ? " (primary language)" : ""), { font: "600 12px sans-serif", color: "#666" });
     add(t.name, { font: "600 16px/1.3 sans-serif" });
     add(t.tagline, { color: "#333" });
     add(t.description, { marginBottom: "0" });
@@ -172,7 +194,7 @@
   function render(locales) {
     closePopover();
     document.getElementById(BOX_ID)?.remove();
-    if (!locales || locales.length < 2) return;
+    if (!locales || locales.length < 1) return;
     const heading = findOverviewHeading();
     // Flags only appear next to the "Overview" heading (Home and About tabs)
     if (!heading) return;
@@ -182,16 +204,21 @@
       display: heading ? "inline-flex" : "flex", alignItems: "center", gap: "8px",
       marginLeft: "16px", flexWrap: "nowrap", flexShrink: "0", verticalAlign: "middle"
     });
-    for (const loc of locales) {
+    // Primary language first, the rest alphabetical
+    const ordered = [...locales].sort((a, b) => (b === locales.primary) - (a === locales.primary));
+    for (const loc of ordered) {
+      const isPrimary = loc === locales.primary;
       const code = flagFor(loc);
       if (code) {
         const img = document.createElement("img");
         img.src = chrome.runtime.getURL("flags/" + code + ".svg");
         img.alt = loc;
-        img.title = loc;
+        img.title = isPrimary ? loc + " (primary language)" : loc;
+        if (isPrimary) img.dataset.primaryLoc = loc;
         Object.assign(img.style, {
           width: "32px", height: "24px", borderRadius: "3px",
-          boxShadow: "0 0 0 1px rgba(0,0,0,.15)", objectFit: "cover"
+          boxShadow: isPrimary ? "0 0 0 2px #fff, 0 0 0 4px #0a66c2" : "0 0 0 1px rgba(0,0,0,.15)",
+          objectFit: "cover", margin: isPrimary ? "0 4px" : "0"
         });
         img.style.cursor = "pointer";
         img.addEventListener("click", (e) => { e.stopPropagation(); togglePopover(loc, img, locales.texts); });
@@ -199,10 +226,11 @@
       } else {
         const s = document.createElement("span");
         s.textContent = loc;
-        s.title = loc;
+        s.title = isPrimary ? loc + " (primary language)" : loc;
+        if (isPrimary) s.dataset.primaryLoc = loc;
         Object.assign(s.style, {
           font: "600 12px sans-serif", padding: "4px 6px",
-          border: "1px solid #999", borderRadius: "3px"
+          border: isPrimary ? "2px solid #0a66c2" : "1px solid #999", borderRadius: "3px"
         });
         s.style.cursor = "pointer";
         s.addEventListener("click", (e) => { e.stopPropagation(); togglePopover(loc, s, locales.texts); });
@@ -235,7 +263,7 @@
     const h = findOverviewHeading();
     // Render again if the box is missing or still in the fallback position although the heading now exists
     const needsRender = !existing || (h && existing.parentElement !== h.parentElement);
-    if (slug === currentSlug && !(needsRender && lastLocales && lastLocales.length > 1)) return;
+    if (slug === currentSlug && !(needsRender && lastLocales && lastLocales.length > 0)) return;
     running = true;
     try {
       if (slug !== currentSlug) {
