@@ -247,7 +247,9 @@
       // Many languages: put the flags on their own line below the heading, right-aligned and wrapping
       Object.assign(box.style, {
         display: "flex", flexWrap: "wrap", justifyContent: "flex-end", gap: "8px",
-        margin: "8px 0 0", width: "100%", boxSizing: "border-box"
+        margin: "8px 0 0 auto", width: "fit-content", boxSizing: "border-box",
+        // 10 flags per row: 10 x 32px + 9 x 8px gaps + 8px extra margin around the highlighted primary flag
+        maxWidth: "min(" + (MAX_INLINE * 32 + (MAX_INLINE - 1) * 8 + 8) + "px, 100%)"
       });
       heading.insertAdjacentElement("afterend", box);
       return;
