@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "LinkedIn Language Flags",
+  "name": "LI Language Flags",
   "version": "0.1.0",
   "description": "Shows flags on LinkedIn company pages for every language the page is actually maintained in. Click a flag to see name, tagline and description in that language.",
   "host_permissions": ["https://www.linkedin.com/*"],
